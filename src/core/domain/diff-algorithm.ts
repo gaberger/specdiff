@@ -9,7 +9,7 @@ function parentPath(path: string): string {
   return idx > 0 ? path.slice(0, idx) : "";
 }
 
-function sharesAncestor(a: string, b: string, minDepth: number): boolean {
+function sharedAncestorDepth(a: string, b: string): number {
   const partsA = a.split(".");
   const partsB = b.split(".");
   let shared = 0;
@@ -17,7 +17,17 @@ function sharesAncestor(a: string, b: string, minDepth: number): boolean {
     if (partsA[i] === partsB[i]) shared++;
     else break;
   }
-  return shared >= minDepth;
+  return shared;
+}
+
+function isRelated(a: string, b: string): boolean {
+  const depth = Math.max(a.split(".").length, b.split(".").length);
+  const shared = sharedAncestorDepth(a, b);
+  // Short paths (<=3 segments): need at least 1 shared ancestor
+  // Medium paths (4-6): need at least 2
+  // Long paths (7+): need at least 3 or 40% of depth
+  const required = depth <= 3 ? 1 : depth <= 6 ? 2 : Math.max(3, Math.ceil(depth * 0.4));
+  return shared >= required;
 }
 
 export function computeDiff(a: unknown, b: unknown): DiffResult[] {
@@ -94,7 +104,7 @@ export function diffFlatMaps(fa: FlatMap, fb: FlatMap): DiffResult[] {
           // Same parent (siblings) — always valid rename
           if (parentPath(fbKey) === keyParent) { renamedTo = fbKey; break; }
           // Different parent — require shared ancestor (min 2 levels) to avoid cross-schema matches
-          if (sharesAncestor(key, fbKey, 2)) { renamedTo = fbKey; break; }
+          if (isRelated(key, fbKey)) { renamedTo = fbKey; break; }
         }
       }
 
@@ -111,10 +121,10 @@ export function diffFlatMaps(fa: FlatMap, fb: FlatMap): DiffResult[] {
           const keyDepth = key.split(".").length;
           for (const fbKey of movePool) {
             if (processed.has(fbKey)) continue;
-            // Same depth = likely a parent rename (address.city → location.city)
-            if (fbKey.split(".").length === keyDepth) { movedTo = fbKey; break; }
-            // Different depth = require shared ancestor to avoid wild mismatches
-            if (sharesAncestor(key, fbKey, 2)) { movedTo = fbKey; break; }
+            // Short paths (<=3): same depth is enough (address.city → location.city)
+            if (keyDepth <= 3 && fbKey.split(".").length === keyDepth) { movedTo = fbKey; break; }
+            // Longer paths: always require meaningful shared ancestry
+            if (isRelated(key, fbKey)) { movedTo = fbKey; break; }
           }
         }
 
