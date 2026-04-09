@@ -1,0 +1,114 @@
+{
+  "id": "feat-design-compliance",
+  "title": "Feature: Complete DESIGN.md compliance for web UI",
+  "specs": "docs/specs/design-compliance.json",
+  "adr": "ADR-004, ADR-006",
+  "created": "2026-04-08",
+  "status": "complete",
+  "topology": "pipeline",
+  "budget": "~80000 tokens",
+  "prior_work": {
+    "done": [
+      "src/core/domain/types.ts — DiffResult, MigrationGuide, ChecklistItem types",
+      "src/core/domain/diff-algorithm.ts — computeDiff with rename/move detection",
+      "src/core/domain/flatten.ts — object flattening",
+      "src/core/domain/guide-builder.ts — buildGuide from diffs",
+      "src/core/ports/index.ts — ChecklistStoragePort, DiffPresenterPort, WebServerPort",
+      "src/core/usecases/response-diff-service.ts — diff + guide + filter orchestration",
+      "src/adapters/secondary/memory-storage.ts — MemoryChecklistStorage",
+      "src/adapters/primary/web-adapter.ts — basic diff table UI",
+      "src/adapters/primary/cli-adapter.ts — CLI presenter",
+      "tests/unit/ — 35 passing tests"
+    ]
+  },
+  "steps": [
+    {
+      "id": "step-1",
+      "description": "Add array length type-change detection to diff algorithm. When both values are arrays with different lengths, emit type-change with oldType array[N] and newType array[M] instead of changed.",
+      "layer": "domain",
+      "adapter": "",
+      "port": "",
+      "dependencies": [],
+      "tier": 0,
+      "specs": ["S01"],
+      "done_condition": "bun test passes; new test case for array length change returns type-change"
+    },
+    {
+      "id": "step-2",
+      "description": "Add /api/guide endpoint handler to web adapter that accepts POST with old, new, baseVersion, revisionVersion, sunsetDate and returns the full MigrationGuide JSON including checklist items and code examples.",
+      "layer": "adapters/primary",
+      "adapter": "web-adapter",
+      "port": "WebServerPort",
+      "dependencies": ["step-1"],
+      "tier": 2,
+      "specs": ["S05"],
+      "done_condition": "POST /api/guide returns valid MigrationGuide JSON"
+    },
+    {
+      "id": "step-3",
+      "description": "Add summary chips, filter buttons, and click-to-expand code examples to the web UI diff table. Summary chips show counts per change type with colored badges. Filter buttons: all, breaking, removed, renamed, moved, type-change, changed, added. Clicking a row toggles a code example panel below it. All rendering via createElement + textContent (ADR-004).",
+      "layer": "adapters/primary",
+      "adapter": "web-adapter",
+      "port": "WebServerPort",
+      "dependencies": ["step-1"],
+      "tier": 2,
+      "specs": ["S02", "S03", "S04", "S09"],
+      "done_condition": "Web UI shows summary chips, filter buttons work, row click expands code examples"
+    },
+    {
+      "id": "step-4",
+      "description": "Build the migration guide viewer in the web UI. Add a 'Generate Guide' button that POSTs to /api/guide and renders: (1) timeline component showing deprecated → migration window → sunset, (2) change sections with severity badges and summaries, (3) interactive checklist with checkboxes, (4) progress bar showing completion %. Checklist state stored in localStorage keyed by btoa(baseVersion:revisionVersion). All rendering via createElement + textContent (ADR-004).",
+      "layer": "adapters/primary",
+      "adapter": "web-adapter",
+      "port": "WebServerPort",
+      "dependencies": ["step-2", "step-3"],
+      "tier": 3,
+      "specs": ["S05", "S06", "S07", "S09", "S10"],
+      "done_condition": "Guide viewer renders timeline, changes, checklist with localStorage persistence and progress bar"
+    },
+    {
+      "id": "step-5",
+      "description": "Add 'Export as Markdown' button to the guide viewer. Generates a .md file with guide title, timeline, each change (summary + severity), and checklist items with [x]/[ ] markers. Triggers browser download.",
+      "layer": "adapters/primary",
+      "adapter": "web-adapter",
+      "port": "WebServerPort",
+      "dependencies": ["step-4"],
+      "tier": 3,
+      "specs": ["S08"],
+      "done_condition": "Clicking Export downloads a valid .md file with all guide sections"
+    },
+    {
+      "id": "step-6",
+      "description": "Add unit tests for array type-change detection and integration test verifying the full web UI flow: load sample → compare → filter → generate guide → check items → verify localStorage → export markdown.",
+      "layer": "integration",
+      "adapter": "",
+      "port": "",
+      "dependencies": ["step-5"],
+      "tier": 5,
+      "specs": ["S01", "S02", "S03", "S04", "S05", "S06", "S07", "S08", "S09", "S10"],
+      "done_condition": "bun test passes with all new tests; all 10 specs covered"
+    }
+  ],
+  "dependencies": {
+    "npm": []
+  },
+  "mergeOrder": [
+    "step-1 first (domain, foundational)",
+    "step-2, step-3 parallel (both tier 2, independent adapter work)",
+    "step-4 after step-2 + step-3 (guide viewer needs both)",
+    "step-5 after step-4 (export needs guide viewer)",
+    "step-6 last (integration validates everything)"
+  ],
+  "riskRegister": [
+    { "risk": "Large HTML string in web-adapter.ts becomes unwieldy", "impact": "medium", "mitigation": "Extract HTML generation into separate functions; keep under 150 lines per function" },
+    { "risk": "innerHTML usage creeps in during guide viewer rendering", "impact": "high", "mitigation": "ADR-004 enforced by pre-commit hook; all rendering uses createElement + textContent" },
+    { "risk": "localStorage key collision between different guide versions", "impact": "low", "mitigation": "Key includes btoa(base:revision) per DESIGN.md spec" }
+  ],
+  "successCriteria": [
+    "All 10 behavioral specs pass",
+    "bun test passes with 0 failures",
+    "hex analyze returns A+ with 0 boundary violations",
+    "Web UI renders summary chips, filters, code examples, guide viewer with checklist, progress bar, and markdown export",
+    "Checklist state survives browser refresh via localStorage"
+  ]
+}

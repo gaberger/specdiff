@@ -1,0 +1,24 @@
+{
+  "id": "cus_NffrFeUfNV2Hib",
+  "object": "customer",
+  "billing": "charge_automatically",
+  "account_balance": 0,
+  "sources": {
+    "object": "list",
+    "data": [],
+    "has_more": false,
+    "url": "/v1/customers/cus_NffrFeUfNV2Hib/sources"
+  },
+  "subscriptions": {
+    "object": "list",
+    "data": []
+  },
+  "created": 1680893993,
+  "email": "jenny@example.com",
+  "livemode": false,
+  "metadata": {},
+  "name": "Jenny Rosen",
+  "phone": null,
+  "preferred_locales": [],
+  "tax_exempt": "none"
+}

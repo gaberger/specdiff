@@ -1,0 +1,22 @@
+{
+  "name": "apidiff",
+  "version": "0.1.0",
+  "description": "API migration toolkit — schema diff, response diff, and migration guide generation",
+  "type": "module",
+  "scripts": {
+    "build": "bun build src/cli.ts --outdir dist --target bun",
+    "start:cli": "bun run src/cli.ts",
+    "start:web": "bun run src/web.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@apidevtools/json-schema-ref-parser": "^15.3.5",
+    "shiki": "4.0.2",
+    "yaml": "^2.8.3"
+  }
+}

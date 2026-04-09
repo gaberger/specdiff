@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.cache/
+.claude/
+.hex/
+.mcp.json
+*.env
+
+# Coq build artifacts
+proofs/*.aux
+proofs/*.glob
+proofs/*.vo
+proofs/*.vok
+proofs/*.vos
+proofs/.*.aux

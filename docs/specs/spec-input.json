@@ -1,0 +1,124 @@
+{
+  "feature": "spec-input",
+  "description": "OpenAPI 2.0/3.0 spec input via REST API fetch and file drop",
+  "specs": [
+    {
+      "id": "S01",
+      "category": "HappyPath",
+      "description": "Fetch an OpenAPI 3.0 JSON spec from a URL",
+      "given": "A publicly accessible URL serving a valid OpenAPI 3.0 JSON document",
+      "when": "fromUrl(url) is called",
+      "then": "Returns a ResolvedSpec with format 'openapi-3.0', fully resolved $ref, and extracted title/version metadata",
+      "negative_spec": false
+    },
+    {
+      "id": "S02",
+      "category": "HappyPath",
+      "description": "Fetch an OpenAPI 2.0 (Swagger) JSON spec from a URL",
+      "given": "A URL serving a valid Swagger 2.0 JSON document with 'swagger: \"2.0\"' field",
+      "when": "fromUrl(url) is called",
+      "then": "Returns a ResolvedSpec with format 'openapi-2.0' and resolved document",
+      "negative_spec": false
+    },
+    {
+      "id": "S03",
+      "category": "HappyPath",
+      "description": "Parse a dropped YAML OpenAPI spec file",
+      "given": "A string containing valid OpenAPI 3.0 YAML content and filename 'petstore.yaml'",
+      "when": "fromFile(content, 'petstore.yaml') is called",
+      "then": "Returns a ResolvedSpec with the YAML parsed to JSON, format detected, and metadata extracted",
+      "negative_spec": false
+    },
+    {
+      "id": "S04",
+      "category": "HappyPath",
+      "description": "Parse a dropped JSON OpenAPI spec file",
+      "given": "A string containing valid OpenAPI 3.0 JSON content and filename 'api.json'",
+      "when": "fromFile(content, 'api.json') is called",
+      "then": "Returns a ResolvedSpec identical to what fromUrl would produce for the same content",
+      "negative_spec": false
+    },
+    {
+      "id": "S05",
+      "category": "HappyPath",
+      "description": "File drop zone accepts dragged files in the web UI",
+      "given": "The web UI is loaded with the compare view visible",
+      "when": "A user drags an OpenAPI JSON file onto the 'Old response' input area",
+      "then": "The file content is read, parsed via SpecInputPort.fromFile(), and the resolved JSON populates the textarea",
+      "negative_spec": false
+    },
+    {
+      "id": "S06",
+      "category": "HappyPath",
+      "description": "URL fetch populates the textarea via server-side proxy",
+      "given": "The web UI is loaded and a URL input field is visible next to each textarea",
+      "when": "User pastes a URL and clicks 'Fetch'",
+      "then": "POST /api/fetch-spec is called, server fetches and resolves the spec, and the resolved JSON populates the textarea",
+      "negative_spec": false
+    },
+    {
+      "id": "S07",
+      "category": "ErrorHandling",
+      "description": "Invalid URL returns a descriptive error",
+      "given": "A URL that returns a 404 or non-JSON/YAML response",
+      "when": "fromUrl(url) is called",
+      "then": "Throws an error with message containing 'Failed to fetch spec' and the HTTP status code",
+      "negative_spec": false
+    },
+    {
+      "id": "S08",
+      "category": "ErrorHandling",
+      "description": "Malformed YAML is rejected with parse error",
+      "given": "A string containing invalid YAML (unclosed brackets, bad indentation)",
+      "when": "fromFile(content, 'broken.yaml') is called",
+      "then": "Throws an error with message containing 'Failed to parse' and does NOT pass malformed data to the domain",
+      "negative_spec": false
+    },
+    {
+      "id": "S09",
+      "category": "Security",
+      "description": "File drop does not use innerHTML to render content",
+      "given": "A dropped file containing HTML/script tags in field values",
+      "when": "The file is processed and displayed in the textarea",
+      "then": "Content is set via textContent or value property only — no innerHTML, outerHTML, or insertAdjacentHTML is used",
+      "negative_spec": true,
+      "domain_conventions": { "reference": "ADR-004" }
+    },
+    {
+      "id": "S10",
+      "category": "EdgeCase",
+      "description": "Document with unresolvable $ref returns error",
+      "given": "An OpenAPI spec with a $ref pointing to a non-existent file or URL",
+      "when": "fromFile(content, 'bad-ref.json') is called",
+      "then": "Throws an error with message containing '$ref resolution failed' rather than producing a partial document",
+      "negative_spec": false
+    },
+    {
+      "id": "S11",
+      "category": "EdgeCase",
+      "description": "Neither OpenAPI 2.0 nor 3.0 document is rejected",
+      "given": "A valid JSON object that has no 'swagger' or 'openapi' field",
+      "when": "fromFile(content, 'random.json') is called",
+      "then": "Throws an error with message containing 'Unsupported format' — only OpenAPI 2.0 and 3.0/3.1 are accepted",
+      "negative_spec": true
+    },
+    {
+      "id": "S12",
+      "category": "EdgeCase",
+      "description": "Empty file is rejected gracefully",
+      "given": "An empty string as file content",
+      "when": "fromFile('', 'empty.json') is called",
+      "then": "Throws an error with message containing 'Empty file' rather than crashing on JSON.parse",
+      "negative_spec": false
+    },
+    {
+      "id": "S13",
+      "category": "Integration",
+      "description": "Resolved spec flows through to diff and guide generation",
+      "given": "Two resolved OpenAPI specs (v1 and v2) with known field differences",
+      "when": "Both are passed to the diff pipeline via the web UI",
+      "then": "The diff results and migration guide reflect the actual schema changes between the two specs",
+      "negative_spec": false
+    }
+  ]
+}

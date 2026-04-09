@@ -1,0 +1,99 @@
+{
+  "feature": "design-compliance",
+  "description": "Complete DESIGN.md compliance — filters, summary chips, code examples, guide viewer, checklist, progress bar, markdown export, array type-change detection",
+  "specs": [
+    {
+      "id": "S01",
+      "category": "HappyPath",
+      "description": "Array length changes are detected as type-changes",
+      "given": "v1 has field tags: [\"a\",\"b\"] and v2 has field tags: [\"a\",\"b\",\"c\"]",
+      "when": "computeDiff(v1, v2) is called",
+      "then": "Returns a type-change result for 'tags' with oldType 'array[2]' and newType 'array[3]'",
+      "negative_spec": false,
+      "domain_conventions": { "array_comparison": "Arrays compared by serialized value; length difference triggers type-change" }
+    },
+    {
+      "id": "S02",
+      "category": "HappyPath",
+      "description": "Filter buttons narrow diff results to selected change type",
+      "given": "A diff result set containing removed, renamed, added, and unchanged entries",
+      "when": "User clicks the 'breaking' filter button in the web UI",
+      "then": "Only removed, type-change, renamed, and moved entries are displayed; added and unchanged are hidden",
+      "negative_spec": false
+    },
+    {
+      "id": "S03",
+      "category": "HappyPath",
+      "description": "Summary chips show counts per change type",
+      "given": "A diff result with 2 removed, 1 renamed, 3 added, 5 unchanged",
+      "when": "The diff table renders",
+      "then": "Summary chips display '2 removed', '1 renamed', '3 added' with correct badge colors; unchanged count is shown muted",
+      "negative_spec": false
+    },
+    {
+      "id": "S04",
+      "category": "HappyPath",
+      "description": "Clicking a diff row expands code examples",
+      "given": "A diff row showing a renamed field 'billing' → 'collection_method'",
+      "when": "User clicks the row",
+      "then": "An expandable section appears below showing before/after code in Node and Python tabs",
+      "negative_spec": false
+    },
+    {
+      "id": "S05",
+      "category": "HappyPath",
+      "description": "Migration guide viewer renders timeline, changes, and checklist",
+      "given": "A diff result with base version 'v1', revision 'v2', and sunset date '2025-06-01'",
+      "when": "User clicks 'Generate Guide' after comparing",
+      "then": "Guide view shows: timeline (deprecated → migration window → sunset), change sections with severity badges, and interactive checklist items",
+      "negative_spec": false
+    },
+    {
+      "id": "S06",
+      "category": "HappyPath",
+      "description": "Checklist state persists in localStorage across page refreshes",
+      "given": "User has checked 2 of 5 checklist items in the migration guide",
+      "when": "User refreshes the browser page and re-generates the same guide",
+      "then": "The same 2 items are still checked; state is restored from localStorage keyed by btoa(base:revision)",
+      "negative_spec": false,
+      "domain_conventions": { "storage_key": "migration-checklist-${btoa(baseVersion + ':' + revisionVersion)}" }
+    },
+    {
+      "id": "S07",
+      "category": "HappyPath",
+      "description": "Progress bar reflects checklist completion percentage",
+      "given": "A checklist with 4 items, 2 checked",
+      "when": "The guide view renders",
+      "then": "Progress bar shows 50% filled with text '2 of 4 complete'",
+      "negative_spec": false
+    },
+    {
+      "id": "S08",
+      "category": "HappyPath",
+      "description": "Export as markdown produces a downloadable migration guide",
+      "given": "A fully rendered migration guide with changes and checklist",
+      "when": "User clicks 'Export as Markdown'",
+      "then": "Browser downloads a .md file containing the guide title, timeline, each change with summary and severity, and checklist items with [x] or [ ] markers",
+      "negative_spec": false
+    },
+    {
+      "id": "S09",
+      "category": "Security",
+      "description": "Guide viewer never uses innerHTML with user-originated data",
+      "given": "A JSON response containing a field value of '<script>alert(1)</script>'",
+      "when": "The guide viewer renders this value in any section (diff table, code examples, checklist)",
+      "then": "The script tag is rendered as visible escaped text, not executed; all rendering uses createElement + textContent",
+      "negative_spec": true,
+      "domain_conventions": { "adr": "ADR-004" }
+    },
+    {
+      "id": "S10",
+      "category": "EdgeCase",
+      "description": "Empty diff produces a clean empty state in guide viewer",
+      "given": "Two identical JSON objects are compared",
+      "when": "User clicks 'Generate Guide'",
+      "then": "Guide shows 'No changes detected — no migration required' with an empty checklist and 100% progress",
+      "negative_spec": false
+    }
+  ]
+}

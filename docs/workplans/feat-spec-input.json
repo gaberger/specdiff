@@ -1,0 +1,130 @@
+{
+  "id": "feat-spec-input",
+  "title": "Feature: OpenAPI Spec Input via REST API and File Drop",
+  "specs": "docs/specs/spec-input.json",
+  "adr": "ADR-008",
+  "created": "2026-04-08",
+  "status": "planned",
+  "topology": "hierarchical",
+  "budget": "~50000 tokens",
+  "prior_work": {
+    "done": [
+      "src/core/domain/types.ts — existing domain types",
+      "src/core/ports/index.ts — existing port interfaces",
+      "src/adapters/secondary/schema-fetch-adapter.ts — URL fetch for CLI (reusable logic)",
+      "src/adapters/primary/web-adapter.ts — existing web adapter with /api/guide and /api/diff",
+      "src/composition-root.ts — existing wiring",
+      "proofs/OpenAPIConstraints.v — Coq preconditions (well_formed, bounded_depth)"
+    ]
+  },
+  "steps": [
+    {
+      "id": "step-1",
+      "description": "Add ResolvedSpec type and OpenAPI format union to domain types. ResolvedSpec has format, document, and metadata fields. No external imports.",
+      "layer": "domain",
+      "adapter": null,
+      "port": null,
+      "dependencies": [],
+      "tier": 0,
+      "specs": ["S01", "S02", "S03", "S04"],
+      "worktree_branch": "feat/spec-input/domain",
+      "done_condition": "types.ts compiles with ResolvedSpec exported, hex analyze passes"
+    },
+    {
+      "id": "step-2",
+      "description": "Add SpecInputPort interface to ports/index.ts with fromUrl(url: string) and fromFile(content: string, filename: string) methods, both returning Promise<ResolvedSpec>.",
+      "layer": "ports",
+      "adapter": null,
+      "port": "SpecInputPort",
+      "dependencies": ["step-1"],
+      "tier": 0,
+      "specs": ["S01", "S03"],
+      "worktree_branch": "feat/spec-input/ports",
+      "done_condition": "ports/index.ts compiles with SpecInputPort exported, hex analyze passes"
+    },
+    {
+      "id": "step-3",
+      "description": "Implement SpecInputAdapter as a secondary adapter. fromUrl: HTTP GET, detect JSON/YAML, parse, detect OpenAPI version (swagger:'2.0' or openapi:'3.x'), resolve $ref via @apidevtools/json-schema-ref-parser, validate well-formedness (unique keys, bounded depth), extract title/version metadata. fromFile: detect format from extension (.yaml/.yml → YAML, else JSON), parse, same validation pipeline. Reject non-OpenAPI, empty files, malformed YAML with descriptive errors.",
+      "layer": "adapters/secondary",
+      "adapter": "spec-input-adapter",
+      "port": "SpecInputPort",
+      "dependencies": ["step-2"],
+      "tier": 1,
+      "specs": ["S01", "S02", "S03", "S04", "S07", "S08", "S10", "S11", "S12"],
+      "worktree_branch": "feat/spec-input/adapter-secondary",
+      "done_condition": "Unit tests pass for: JSON URL fetch, YAML file parse, OpenAPI 2.0 detection, OpenAPI 3.0 detection, invalid URL error, malformed YAML error, $ref resolution, non-OpenAPI rejection, empty file rejection"
+    },
+    {
+      "id": "step-4",
+      "description": "Update WebAdapter: (1) Add POST /api/fetch-spec endpoint that accepts {url, side} body, calls SpecInputPort.fromUrl(), returns ResolvedSpec JSON. (2) Add file drop handler constructor parameter (SpecInputPort). (3) Update static/index.html: add URL input field + Fetch button next to each textarea, add drop zone overlay on each textarea with dragover/drop handlers using File API, populate textarea via textContent/value (never innerHTML per ADR-004). Drop zone calls POST /api/fetch-file with file content.",
+      "layer": "adapters/primary",
+      "adapter": "web-adapter",
+      "port": "SpecInputPort",
+      "dependencies": ["step-2"],
+      "tier": 2,
+      "specs": ["S05", "S06", "S09"],
+      "worktree_branch": "feat/spec-input/adapter-primary",
+      "done_condition": "Web adapter compiles with new endpoints. HTML has drop zones and URL inputs. No innerHTML/outerHTML/insertAdjacentHTML used with external data. hex analyze passes."
+    },
+    {
+      "id": "step-5",
+      "description": "Wire SpecInputAdapter into composition root. Update createWebApp() to instantiate SpecInputAdapter and pass it to WebAdapter constructor. Update createCliApp() to use SpecInputAdapter for spec loading.",
+      "layer": "composition-root",
+      "adapter": null,
+      "port": null,
+      "dependencies": ["step-3", "step-4"],
+      "tier": 4,
+      "specs": ["S13"],
+      "worktree_branch": "feat/spec-input/wiring",
+      "done_condition": "Full app builds and starts. composition-root.ts is the only file importing adapters. hex analyze passes."
+    },
+    {
+      "id": "step-6",
+      "description": "Integration tests: (1) Fetch a real OpenAPI spec URL (e.g. Petstore), verify ResolvedSpec has correct format and metadata. (2) Parse a YAML spec file, verify identical output to JSON equivalent. (3) End-to-end: two specs in → diff results out → guide generated with correct changes. (4) Verify error cases: 404 URL, malformed YAML, non-OpenAPI JSON, empty file.",
+      "layer": "integration",
+      "adapter": null,
+      "port": null,
+      "dependencies": ["step-5"],
+      "tier": 5,
+      "specs": ["S01", "S02", "S03", "S04", "S07", "S08", "S10", "S11", "S12", "S13"],
+      "worktree_branch": "feat/spec-input/integration",
+      "done_condition": "All integration tests pass. bun test --filter spec-input exits 0."
+    }
+  ],
+  "dependencies": {
+    "npm": [
+      { "name": "yaml", "version": "^2.4", "purpose": "Parse YAML OpenAPI specs to JSON" },
+      { "name": "@apidevtools/json-schema-ref-parser", "version": "^11.0", "purpose": "Resolve $ref pointers in OpenAPI documents" }
+    ]
+  },
+  "mergeOrder": [
+    "step-1 → step-2 (domain types then port interface)",
+    "step-3, step-4 parallel after step-2",
+    "step-5 after step-3 + step-4 (wiring needs both adapters)",
+    "step-6 last (integration validates everything)"
+  ],
+  "riskRegister": [
+    {
+      "risk": "$ref resolver pulls external URLs during file-drop parsing",
+      "impact": "medium",
+      "mitigation": "Disable external $ref resolution for fromFile — only resolve internal refs. Document limitation."
+    },
+    {
+      "risk": "CORS blocks server-side spec fetch for certain hosts",
+      "impact": "low",
+      "mitigation": "Server-side fetch bypasses CORS. Add timeout (10s) and size limit (10MB) to prevent abuse."
+    },
+    {
+      "risk": "Large OpenAPI specs (>5MB) cause performance issues in flatten/diff",
+      "impact": "medium",
+      "mitigation": "Add size validation in SpecInputAdapter. Warn user if spec exceeds 5MB before diffing."
+    }
+  ],
+  "successCriteria": [
+    "User can paste a URL, click Fetch, and see the resolved OpenAPI spec in the textarea",
+    "User can drag-drop a .yaml or .json file onto the textarea and see the parsed content",
+    "Diff and migration guide work correctly with fetched/dropped OpenAPI specs",
+    "Invalid inputs produce clear error messages without crashing",
+    "hex analyze reports zero architecture violations"
+  ]
+}

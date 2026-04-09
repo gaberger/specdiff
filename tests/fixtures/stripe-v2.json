@@ -1,0 +1,28 @@
+{
+  "id": "cus_NffrFeUfNV2Hib",
+  "object": "customer",
+  "collection_method": "charge_automatically",
+  "balance": 0,
+  "payment_methods": {
+    "object": "list",
+    "data": [],
+    "has_more": false,
+    "url": "/v1/customers/cus_NffrFeUfNV2Hib/payment_methods"
+  },
+  "subscriptions": {
+    "object": "list",
+    "data": []
+  },
+  "created": 1680893993,
+  "email": "jenny@example.com",
+  "livemode": false,
+  "metadata": {},
+  "name": "Jenny Rosen",
+  "phone": null,
+  "preferred_locales": [],
+  "tax_exempt": "none",
+  "invoice_settings": {
+    "default_payment_method": null,
+    "footer": null
+  }
+}
