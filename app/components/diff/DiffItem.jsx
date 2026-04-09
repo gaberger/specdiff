@@ -1,15 +1,13 @@
-import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, Plus, Minus, RefreshCw, ArrowRight, MoveRight, AlertTriangle } from "lucide-react";
+import React from "react";
 
 const typeConfig = {
-  added:         { icon: Plus,            color: "added",    label: "Added" },
-  removed:       { icon: Minus,           color: "removed",  label: "Removed" },
-  changed:       { icon: RefreshCw,       color: "modified", label: "Changed" },
-  renamed:       { icon: ArrowRight,      color: "modified", label: "Renamed" },
-  moved:         { icon: MoveRight,       color: "modified", label: "Moved" },
-  "type-change": { icon: AlertTriangle,   color: "removed",  label: "Type Change" },
-  unchanged:     { icon: RefreshCw,       color: "modified", label: "Unchanged" },
+  removed:       { label: "Removed",     bg: "bg-red-100",    text: "text-red-600" },
+  renamed:       { label: "Renamed",     bg: "bg-purple-100", text: "text-purple-600" },
+  moved:         { label: "Moved",       bg: "bg-blue-100",   text: "text-blue-600" },
+  "type-change": { label: "Type Change", bg: "bg-amber-100",  text: "text-amber-600" },
+  added:         { label: "Added",       bg: "bg-green-100",  text: "text-green-600" },
+  changed:       { label: "Changed",     bg: "bg-amber-100",  text: "text-amber-600" },
+  unchanged:     { label: "Unchanged",   bg: "bg-stone-100",  text: "text-stone-500" },
 };
 
 function formatValue(val) {
@@ -18,105 +16,112 @@ function formatValue(val) {
   return String(val);
 }
 
-export default function DiffItem({ result }) {
-  const [expanded, setExpanded] = useState(false);
-  const config = typeConfig[result.type] || typeConfig.changed;
-  const Icon = config.icon;
+/** Split a dot-path into individually clickable segments */
+function pathSegments(fullPath) {
+  if (!fullPath) return [];
+  return fullPath.split(".");
+}
 
-  const hasDetails =
-    result.old !== undefined ||
-    result.new !== undefined ||
-    result.newPath ||
-    result.oldType;
+export default function DiffItem({ result, onPathClick }) {
+  const config = typeConfig[result.type] || typeConfig.changed;
+  const segments = pathSegments(result.path);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -8 }}
-      animate={{ opacity: 1, x: 0 }}
-      className="group rounded-lg border border-border bg-card overflow-hidden transition-shadow hover:shadow-sm"
-    >
-      <button
-        onClick={() => hasDetails && setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 p-3.5 text-left"
-      >
-        <div
-          className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
-          style={{
-            backgroundColor: `hsl(var(--diff-${config.color}-bg))`,
-            color: `hsl(var(--diff-${config.color}))`
-          }}
-        >
-          <Icon className="w-3.5 h-3.5" />
-        </div>
-
-        <span className="font-mono text-sm text-foreground flex-1 truncate">
-          {result.path}
-          {result.newPath && (
-            <span className="text-muted-foreground"> → {result.newPath}</span>
+    <tr className="border-b border-stone-200 hover:bg-stone-100/50 transition-colors">
+      {/* Path column — each segment is individually clickable */}
+      <td className="px-4 py-2.5 font-mono text-xs">
+        <div className="break-all leading-relaxed">
+          {segments.map((seg, i) => {
+            const isLast = i === segments.length - 1;
+            const partialPath = segments.slice(0, i + 1).join(".");
+            // Determine which editor to scroll based on change type:
+            // - added: path only in right (new) editor
+            // - removed: path only in left (old) editor
+            // - renamed/moved: old path in left, new path shown separately
+            // - changed/type-change/unchanged: same path in both editors
+            const side = result.type === "added" ? "right"
+              : result.type === "removed" ? "left"
+              : (result.type === "renamed" || result.type === "moved") ? "left"
+              : "both";
+            const hoverColor = side === "right" ? "hover:bg-green-100 hover:text-green-800"
+              : side === "left" ? "hover:bg-amber-100 hover:text-amber-800"
+              : "hover:bg-blue-100 hover:text-blue-800";
+            return (
+              <React.Fragment key={i}>
+                {i > 0 && <span className="text-stone-300">.</span>}
+                <span
+                  onClick={() => onPathClick && onPathClick(partialPath, side)}
+                  className={`cursor-pointer rounded px-0.5 transition-colors ${hoverColor} ${
+                    isLast ? "font-bold text-stone-800" : "text-stone-400"
+                  }`}
+                  title={`${partialPath} (${side === "both" ? "both editors" : side + " editor"})`}
+                >
+                  {seg}
+                </span>
+              </React.Fragment>
+            );
+          })}
+          {(result.type === "renamed" || result.type === "moved") && result.newPath && (
+            <>
+              <span className="text-amber-500 mx-1">{"\u2192"}</span>
+              {pathSegments(result.newPath).map((seg, i, arr) => {
+                const partialNewPath = arr.slice(0, i + 1).join(".");
+                const isLast = i === arr.length - 1;
+                return (
+                  <React.Fragment key={`new-${i}`}>
+                    {i > 0 && <span className="text-stone-300">.</span>}
+                    <span
+                      onClick={() => onPathClick && onPathClick(partialNewPath, "right")}
+                      className={`cursor-pointer rounded px-0.5 transition-colors hover:bg-green-100 hover:text-green-800 ${
+                        isLast ? "font-bold text-stone-600" : "text-stone-400"
+                      }`}
+                      title={partialNewPath}
+                    >
+                      {seg}
+                    </span>
+                  </React.Fragment>
+                );
+              })}
+            </>
           )}
-        </span>
+        </div>
+      </td>
 
+      {/* Change type badge column */}
+      <td className="px-4 py-2.5">
         <span
-          className="text-[11px] font-medium px-2 py-0.5 rounded-full"
-          style={{
-            backgroundColor: `hsl(var(--diff-${config.color}-bg))`,
-            color: `hsl(var(--diff-${config.color}))`
-          }}
+          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${config.bg} ${config.text}`}
         >
           {config.label}
         </span>
+      </td>
 
-        {hasDetails && (
-          <ChevronRight
-            className={`w-4 h-4 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`}
-          />
+      {/* Diff column */}
+      <td className="px-4 py-2.5 font-mono text-xs">
+        {result.type === "type-change" && result.oldType && result.newType ? (
+          <span>
+            <span className="text-red-600 line-through">{result.oldType}</span>
+            <span className="text-stone-400 mx-1">{"\u2192"}</span>
+            <span className="text-green-600">{result.newType}</span>
+          </span>
+        ) : (
+          <span>
+            {result.old !== undefined && (
+              <span className="text-red-600 line-through mr-2">
+                {formatValue(result.old)}
+              </span>
+            )}
+            {result.new !== undefined && (
+              <span className="text-green-600">
+                {formatValue(result.new)}
+              </span>
+            )}
+            {result.old === undefined && result.new === undefined && (
+              <span className="text-stone-400">&mdash;</span>
+            )}
+          </span>
         )}
-      </button>
-
-      <AnimatePresence>
-        {expanded && hasDetails && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <div className="px-4 pb-4 pt-0">
-              <div className="rounded-md bg-muted/50 border border-border/50 divide-y divide-border/50">
-                {result.old !== undefined && (
-                  <div className="px-3 py-2.5 text-xs">
-                    <span className="text-muted-foreground">old: </span>
-                    <span className="font-mono text-diff-removed line-through">
-                      {formatValue(result.old)}
-                    </span>
-                  </div>
-                )}
-                {result.new !== undefined && (
-                  <div className="px-3 py-2.5 text-xs">
-                    <span className="text-muted-foreground">new: </span>
-                    <span className="font-mono text-diff-added">
-                      {formatValue(result.new)}
-                    </span>
-                  </div>
-                )}
-                {result.oldType && result.newType && (
-                  <div className="px-3 py-2.5 text-xs">
-                    <span className="text-muted-foreground">type: </span>
-                    <span className="font-mono text-diff-removed line-through mr-2">
-                      {result.oldType}
-                    </span>
-                    <span className="text-muted-foreground">→ </span>
-                    <span className="font-mono text-diff-added">
-                      {result.newType}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+      </td>
+    </tr>
   );
 }

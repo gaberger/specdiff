@@ -1,0 +1,115 @@
+{
+  "feature": "react-feature-parity",
+  "description": "Restore all vanilla HTML features to the React/Vite app",
+  "specs": [
+    {
+      "id": "S01",
+      "category": "HappyPath",
+      "description": "URL fetch populates editor with resolved spec",
+      "given": "A URL input field is visible below each editor textarea",
+      "when": "User pastes a URL and clicks Fetch",
+      "then": "The spec is fetched, parsed, and displayed in the textarea with file size and version shown",
+      "negative_spec": false
+    },
+    {
+      "id": "S02",
+      "category": "HappyPath",
+      "description": "File drag-drop loads spec into editor",
+      "given": "The editor textarea is a valid drop zone",
+      "when": "User drags a .json or .yaml file onto the editor",
+      "then": "An overlay appears during drag, and the file content populates the textarea on drop",
+      "negative_spec": false
+    },
+    {
+      "id": "S03",
+      "category": "HappyPath",
+      "description": "Synced scroll keeps both editors aligned",
+      "given": "Both editors have JSON content loaded",
+      "when": "User scrolls the left editor",
+      "then": "The right editor scrolls proportionally to maintain alignment",
+      "negative_spec": false
+    },
+    {
+      "id": "S04",
+      "category": "HappyPath",
+      "description": "Diff-aware line highlighting shows changed lines in editors",
+      "given": "A diff has been computed with results showing changed paths",
+      "when": "The results are displayed",
+      "then": "Lines in both editors that correspond to changed paths are highlighted with colored backgrounds matching the change type",
+      "negative_spec": false
+    },
+    {
+      "id": "S05",
+      "category": "HappyPath",
+      "description": "Migration guide renders with timeline, progress, and checklist",
+      "given": "A diff has been computed and the user clicks Generate guide",
+      "when": "The guide section is displayed",
+      "then": "Shows title, timeline with past/current/future dots, progress bar, severity-colored change cards with checklists",
+      "negative_spec": false
+    },
+    {
+      "id": "S06",
+      "category": "HappyPath",
+      "description": "Checklist state persists across page reloads",
+      "given": "User has checked items in the migration checklist",
+      "when": "The page is reloaded and the same guide is viewed",
+      "then": "Previously checked items remain checked via localStorage",
+      "negative_spec": false
+    },
+    {
+      "id": "S07",
+      "category": "HappyPath",
+      "description": "Markdown export downloads complete guide",
+      "given": "A migration guide is displayed with some checklist items checked",
+      "when": "User clicks Export as Markdown",
+      "then": "A .md file downloads containing title, timeline, all changes with checked/unchecked checklist state",
+      "negative_spec": false
+    },
+    {
+      "id": "S08",
+      "category": "HappyPath",
+      "description": "Path click in diff table scrolls editors to that line",
+      "given": "A diff table is displayed and both editors have content",
+      "when": "User clicks a path segment in the diff table",
+      "then": "Both editors scroll to the line containing that JSON path",
+      "negative_spec": false
+    },
+    {
+      "id": "S09",
+      "category": "HappyPath",
+      "description": "Editor info shows file size and spec version",
+      "given": "An editor has JSON content pasted or loaded",
+      "when": "The content changes",
+      "then": "Below the editor, file size in KB/MB and extracted version string are displayed",
+      "negative_spec": false
+    },
+    {
+      "id": "S10",
+      "category": "HappyPath",
+      "description": "Guide nav tab switches to migration guide view",
+      "given": "A migration guide has been generated",
+      "when": "User clicks the Guide tab in the header",
+      "then": "The compare view is hidden and the migration guide section is shown",
+      "negative_spec": false
+    },
+    {
+      "id": "S11",
+      "category": "Security",
+      "description": "No unsafe HTML injection with external data",
+      "given": "Any external data such as spec content, URL responses, or file content",
+      "when": "Data is rendered in the UI",
+      "then": "React JSX escaping handles all rendering safely per ADR-004",
+      "negative_spec": true,
+      "domain_conventions": { "reference": "ADR-004" }
+    },
+    {
+      "id": "S12",
+      "category": "EdgeCase",
+      "description": "Provider sidebar auto-compares on version selection",
+      "given": "The provider sidebar shows Stripe with version comparisons",
+      "when": "User clicks a version pair",
+      "then": "Both editors populate and diff runs automatically with results displayed",
+      "negative_spec": false
+    }
+  ]
+}

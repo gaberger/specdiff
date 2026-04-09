@@ -1,56 +1,80 @@
 import React from "react";
-import { Plus, Minus, RefreshCw, ArrowRight, MoveRight, AlertTriangle, GitCompareArrows } from "lucide-react";
 import { motion } from "framer-motion";
 
 const BREAKING_TYPES = ["removed", "type-change", "renamed", "moved"];
 
-const stats = [
-  { key: "removed", label: "Removed", icon: Minus, color: "removed" },
-  { key: "added", label: "Added", icon: Plus, color: "added" },
-  { key: "modified", label: "Modified", icon: RefreshCw, color: "modified" },
-  { key: "breaking", label: "Breaking", icon: AlertTriangle, color: "removed" },
+const chipConfig = [
+  { key: "removed",     label: "Removed",     bg: "bg-red-100",    text: "text-red-600",    border: "border-red-200",    hoverBg: "hover:bg-red-200" },
+  { key: "renamed",     label: "Renamed",     bg: "bg-purple-100", text: "text-purple-600", border: "border-purple-200", hoverBg: "hover:bg-purple-200" },
+  { key: "moved",       label: "Moved",       bg: "bg-blue-100",   text: "text-blue-600",   border: "border-blue-200",   hoverBg: "hover:bg-blue-200" },
+  { key: "type-change", label: "Type Change", bg: "bg-amber-100",  text: "text-amber-600",  border: "border-amber-200",  hoverBg: "hover:bg-amber-200" },
+  { key: "added",       label: "Added",       bg: "bg-green-100",  text: "text-green-600",  border: "border-green-200",  hoverBg: "hover:bg-green-200" },
+  { key: "changed",     label: "Changed",     bg: "bg-amber-100",  text: "text-amber-600",  border: "border-amber-200",  hoverBg: "hover:bg-amber-200" },
+  { key: "breaking",    label: "Breaking",    bg: "bg-red-50",     text: "text-red-700",    border: "border-red-300",    hoverBg: "hover:bg-red-100" },
 ];
 
-export default function DiffSummary({ results }) {
-  const counts = {
-    removed: results.filter((r) => r.type === "removed").length,
-    added: results.filter((r) => r.type === "added").length,
-    modified: results.filter((r) => ["changed", "renamed", "moved", "type-change"].includes(r.type)).length,
-    breaking: results.filter((r) => BREAKING_TYPES.includes(r.type)).length,
-  };
+function countForKey(results, key) {
+  if (key === "breaking") {
+    return results.filter((r) => BREAKING_TYPES.includes(r.type)).length;
+  }
+  return results.filter((r) => r.type === key).length;
+}
 
+export default function DiffSummary({ results, activeFilter, onFilterChange }) {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-      {stats.map((s, i) => {
-        const Icon = s.icon;
-        const count = counts[s.key] || 0;
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      variants={{
+        hidden: {},
+        visible: { transition: { staggerChildren: 0.04 } },
+      }}
+      className="flex flex-wrap gap-2"
+    >
+      {/* "All" chip */}
+      <motion.div
+        variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}
+      >
+        <button
+          onClick={() => onFilterChange("all")}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
+            activeFilter === "all"
+              ? "bg-stone-800 text-white border-stone-800"
+              : "bg-stone-100 text-stone-600 border-stone-200 hover:bg-stone-200"
+          }`}
+        >
+          All
+          <span className="tabular-nums">
+            {results.filter((r) => r.type !== "unchanged").length}
+          </span>
+        </button>
+      </motion.div>
+
+      {chipConfig.map((chip) => {
+        const count = countForKey(results, chip.key);
+        if (count === 0) return null;
+
+        const isActive = activeFilter === chip.key;
 
         return (
           <motion.div
-            key={s.key}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.06 }}
-            className="rounded-xl border border-border bg-card p-4"
+            key={chip.key}
+            variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}
           >
-            <div className="flex items-center gap-2.5 mb-2">
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{
-                  backgroundColor: `hsl(var(--diff-${s.color}-bg))`,
-                  color: `hsl(var(--diff-${s.color}))`
-                }}
-              >
-                <Icon className="w-4 h-4" />
-              </div>
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                {s.label}
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-foreground tabular-nums">{count}</p>
+            <button
+              onClick={() => onFilterChange(chip.key)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
+                isActive
+                  ? `${chip.bg} ${chip.text} ${chip.border} ring-2 ring-offset-1 ring-current`
+                  : `${chip.bg} ${chip.text} ${chip.border} ${chip.hoverBg}`
+              }`}
+            >
+              {chip.label}
+              <span className="tabular-nums">{count}</span>
+            </button>
           </motion.div>
         );
       })}
-    </div>
+    </motion.div>
   );
 }

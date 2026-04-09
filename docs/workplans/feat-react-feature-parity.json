@@ -1,0 +1,87 @@
+{
+  "id": "feat-react-feature-parity",
+  "title": "Feature: Restore full vanilla HTML feature parity to React app",
+  "specs": "docs/specs/react-feature-parity.json",
+  "adr": "ADR-012",
+  "created": "2026-04-09",
+  "status": "in_progress",
+  "topology": "hierarchical",
+  "budget": "~80000 tokens",
+  "steps": [
+    {
+      "id": "step-1",
+      "description": "Rewrite SpecInput with URL fetch input, file drag-drop zone, editor info (file size + version), and line numbers",
+      "layer": "adapters/primary",
+      "adapter": "react-spec-input",
+      "port": null,
+      "dependencies": [],
+      "tier": 1,
+      "specs": ["S01", "S02", "S09"],
+      "done_condition": "SpecInput renders URL input + Fetch button, drag-drop overlay, file size/version info. Vite builds clean.",
+      "status": "in_progress"
+    },
+    {
+      "id": "step-2",
+      "description": "Create synced scroll hook and diff-aware line highlighting hook + EditorOverlay component",
+      "layer": "adapters/primary",
+      "adapter": "react-editor-hooks",
+      "port": null,
+      "dependencies": [],
+      "tier": 1,
+      "specs": ["S03", "S04"],
+      "done_condition": "useSyncedScroll syncs two refs. useDiffHighlight maps results to line numbers. EditorOverlay renders colored line backgrounds.",
+      "status": "in_progress"
+    },
+    {
+      "id": "step-3",
+      "description": "Create MigrationGuide component with timeline, progress bar, severity-colored change cards, checklist with localStorage persistence, code example tabs, and Markdown export",
+      "layer": "adapters/primary",
+      "adapter": "react-guide",
+      "port": null,
+      "dependencies": [],
+      "tier": 1,
+      "specs": ["S05", "S06", "S07"],
+      "done_condition": "MigrationGuide renders timeline dots, progress bar, change cards with checklists. Export downloads .md file. Checklist state persists in localStorage.",
+      "status": "in_progress"
+    },
+    {
+      "id": "step-4",
+      "description": "Wire all new components into DiffViewer: integrate SpecInput with synced scroll and diff overlay, add Guide tab navigation, add guide generation form, connect MigrationGuide component, add path click handler to scroll editors",
+      "layer": "adapters/primary",
+      "adapter": "react-diff-viewer",
+      "port": null,
+      "dependencies": ["step-1", "step-2", "step-3"],
+      "tier": 2,
+      "specs": ["S08", "S10", "S12"],
+      "done_condition": "DiffViewer has Compare/Guide tab switching, synced scroll editors with diff highlighting, guide generation form, path click scrolls editors. Vite builds clean."
+    },
+    {
+      "id": "step-5",
+      "description": "Final integration test: verify all 12 specs, Vite build, backend tests still pass, no XSS violations",
+      "layer": "integration",
+      "adapter": null,
+      "port": null,
+      "dependencies": ["step-4"],
+      "tier": 5,
+      "specs": ["S01", "S02", "S03", "S04", "S05", "S06", "S07", "S08", "S09", "S10", "S11", "S12"],
+      "done_condition": "All 51 backend tests pass. Vite build succeeds. Manual verification of all 12 spec behaviors."
+    }
+  ],
+  "mergeOrder": [
+    "step-1, step-2, step-3 parallel (independent components)",
+    "step-4 after all three (wiring)",
+    "step-5 last (validation)"
+  ],
+  "successCriteria": [
+    "URL fetch works in both editors",
+    "File drag-drop shows overlay and loads content",
+    "Editors scroll in sync",
+    "Changed lines are highlighted in editors",
+    "Migration guide shows timeline, progress, checklist",
+    "Markdown export downloads correctly",
+    "Path click in table scrolls editors",
+    "Provider sidebar auto-compares on version select",
+    "51 backend tests still pass",
+    "Vite build succeeds"
+  ]
+}

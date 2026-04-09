@@ -1,64 +1,89 @@
-import React, { useState } from "react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import DiffItem from "./DiffItem";
-import { motion } from "framer-motion";
+import React, { useState, useMemo } from "react";
+import DiffSummary from "@/components/diff/DiffSummary";
+import DiffItem from "@/components/diff/DiffItem";
 
 const BREAKING_TYPES = ["removed", "type-change", "renamed", "moved"];
-
-const filters = [
-  { value: "all", label: "All" },
-  { value: "breaking", label: "Breaking" },
-  { value: "added", label: "Added" },
-  { value: "changed", label: "Changed" },
-];
+const PAGE_SIZE = 50;
 
 function filterResults(results, filter) {
   const nonUnchanged = results.filter((r) => r.type !== "unchanged");
   if (filter === "all") return nonUnchanged;
   if (filter === "breaking") return nonUnchanged.filter((r) => BREAKING_TYPES.includes(r.type));
-  if (filter === "changed") return nonUnchanged.filter((r) => ["changed", "renamed", "moved", "type-change"].includes(r.type));
   return nonUnchanged.filter((r) => r.type === filter);
 }
 
-export default function DiffResults({ results }) {
-  const [filter, setFilter] = useState("all");
-  const filtered = filterResults(results, filter);
+export default function DiffResults({ results, activeFilter, onFilterChange, onPathClick }) {
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  const filtered = useMemo(
+    () => filterResults(results, activeFilter),
+    [results, activeFilter]
+  );
+
+  const visible = filtered.slice(0, visibleCount);
+  const hasMore = visibleCount < filtered.length;
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-foreground">Changes</h2>
-        <Tabs value={filter} onValueChange={setFilter}>
-          <TabsList className="h-8">
-            {filters.map((f) => (
-              <TabsTrigger key={f.value} value={f.value} className="text-xs px-3 h-7">
-                {f.label}
-                {f.value !== "all" && (
-                  <span className="ml-1.5 text-muted-foreground">
-                    {filterResults(results, f.value).length}
-                  </span>
-                )}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      </div>
+    <div className="space-y-4">
+      {/* Filter chips */}
+      <DiffSummary
+        results={results}
+        activeFilter={activeFilter}
+        onFilterChange={(f) => {
+          onFilterChange(f);
+          setVisibleCount(PAGE_SIZE);
+        }}
+      />
 
-      <div className="space-y-2">
-        {filtered.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-12 text-muted-foreground text-sm"
-          >
-            No {filter === "all" ? "" : filter} changes found
-          </motion.div>
-        ) : (
-          filtered.map((result, i) => (
-            <DiffItem key={`${result.type}-${result.path}-${i}`} result={result} />
-          ))
-        )}
-      </div>
+      {/* Table */}
+      {filtered.length === 0 ? (
+        <div className="text-center py-16 text-stone-400 text-sm">
+          No {activeFilter === "all" ? "" : activeFilter + " "}changes found
+        </div>
+      ) : (
+        <div className="border border-stone-200 rounded-lg overflow-hidden bg-white">
+          <table className="w-full text-left table-fixed">
+            <colgroup>
+              <col className="w-[50%]" />
+              <col className="w-[100px]" />
+              <col />
+            </colgroup>
+            <thead className="sticky top-0 z-10 bg-stone-100 border-b border-stone-200">
+              <tr>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-stone-500 uppercase tracking-wider">
+                  Path
+                </th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-stone-500 uppercase tracking-wider">
+                  Change
+                </th>
+                <th className="px-4 py-2.5 text-[11px] font-semibold text-stone-500 uppercase tracking-wider">
+                  Diff
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((result, i) => (
+                <DiffItem
+                  key={`${result.type}-${result.path}-${i}`}
+                  result={result}
+                  onPathClick={onPathClick}
+                />
+              ))}
+            </tbody>
+          </table>
+
+          {hasMore && (
+            <div className="border-t border-stone-200 px-4 py-3 text-center bg-stone-50">
+              <button
+                onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                className="text-xs font-medium text-amber-700 hover:text-amber-800 hover:underline cursor-pointer"
+              >
+                Show more ({filtered.length - visibleCount} remaining)
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
