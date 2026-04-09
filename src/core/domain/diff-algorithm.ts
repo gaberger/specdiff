@@ -21,11 +21,33 @@ function sharedAncestorDepth(a: string, b: string): number {
 }
 
 function isRelated(a: string, b: string): boolean {
-  const depth = Math.max(a.split(".").length, b.split(".").length);
+  const partsA = a.split(".");
+  const partsB = b.split(".");
+  const depth = Math.max(partsA.length, partsB.length);
   const shared = sharedAncestorDepth(a, b);
-  // Short paths (<=3 segments): need at least 1 shared ancestor
-  // Medium paths (4-6): need at least 2
-  // Long paths (7+): need at least 3 or 40% of depth
+
+  // OpenAPI endpoint boundary: if both paths are under "paths.",
+  // they must share the same endpoint (paths.<route>.<method>)
+  // to be considered related. This prevents cross-endpoint false matches.
+  if (partsA[0] === "paths" && partsB[0] === "paths") {
+    // Endpoint = paths.<route>.<method> = first 3 segments
+    if (partsA.length >= 3 && partsB.length >= 3) {
+      if (partsA[1] !== partsB[1] || partsA[2] !== partsB[2]) {
+        return false; // different endpoint — not related
+      }
+    }
+  }
+
+  // Schema boundary: if both are under "components.schemas.",
+  // they must share the same schema name
+  if (partsA[0] === "components" && partsA[1] === "schemas" &&
+      partsB[0] === "components" && partsB[1] === "schemas") {
+    if (partsA.length >= 3 && partsB.length >= 3 && partsA[2] !== partsB[2]) {
+      return false; // different schema — not related
+    }
+  }
+
+  // General relatedness: shared ancestor depth threshold
   const required = depth <= 3 ? 1 : depth <= 6 ? 2 : Math.max(3, Math.ceil(depth * 0.4));
   return shared >= required;
 }
@@ -109,7 +131,13 @@ export function diffFlatMaps(fa: FlatMap, fb: FlatMap): DiffResult[] {
       }
 
       if (renamedTo) {
-        results.push({ type: "renamed", path: key, newPath: renamedTo, old: fa[key], new: fb[renamedTo] });
+        const shared = sharedAncestorDepth(key, renamedTo);
+        const maxDepth = Math.max(key.split(".").length, renamedTo.split(".").length);
+        const confidence = maxDepth > 0 ? shared / maxDepth : 1;
+        // Sibling renames (same parent) get high confidence
+        const isSibling = parentPath(key) === parentPath(renamedTo);
+        const finalConfidence = isSibling ? Math.max(confidence, 0.9) : confidence;
+        results.push({ type: "renamed", path: key, newPath: renamedTo, old: fa[key], new: fb[renamedTo], confidence: Math.round(finalConfidence * 100) / 100 });
         processed.add(renamedTo);
       } else {
         // Check for move: same leaf name + value
@@ -129,7 +157,10 @@ export function diffFlatMaps(fa: FlatMap, fb: FlatMap): DiffResult[] {
         }
 
         if (movedTo) {
-          results.push({ type: "moved", path: key, newPath: movedTo, old: fa[key], new: fb[movedTo] });
+          const shared = sharedAncestorDepth(key, movedTo);
+          const maxDepth = Math.max(key.split(".").length, movedTo.split(".").length);
+          const moveConfidence = maxDepth > 0 ? shared / maxDepth : 1;
+          results.push({ type: "moved", path: key, newPath: movedTo, old: fa[key], new: fb[movedTo], confidence: Math.round(moveConfidence * 100) / 100 });
           processed.add(movedTo);
         } else {
           results.push({ type: "removed", path: key, old: fa[key] });

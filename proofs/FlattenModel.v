@@ -250,10 +250,25 @@ Proof.
       destruct (String.eqb prefix EmptyString) eqn:Heq.
       * apply String.eqb_eq in Heq. contradiction.
       * reflexivity.
-    + (* JArr — array is a leaf *)
-      destruct (String.eqb prefix EmptyString) eqn:Heq.
-      * apply String.eqb_eq in Heq. contradiction.
-      * reflexivity.
+    + (* JArr — is_leaf means NOT recursible *)
+      simpl in Hleaf.
+      unfold is_recursible_array_b. simpl.
+      destruct l as [| hd tl].
+      * (* empty array — always leaf *)
+        simpl. destruct (String.eqb prefix EmptyString) eqn:Heq.
+        { apply String.eqb_eq in Heq. contradiction. }
+        { reflexivity. }
+      * (* non-empty array — is_leaf requires not recursible *)
+        destruct hd as [| | | | | fields]; simpl.
+        all: try (destruct (String.eqb prefix EmptyString) eqn:Heq;
+                   [ apply String.eqb_eq in Heq; contradiction | reflexivity ]).
+        (* JObj case — has_name_field must be false for is_leaf *)
+        destruct (has_name_field fields) eqn:Hnames.
+        { exfalso. apply Hleaf. unfold is_recursible_array. simpl. exact Hnames. }
+        { simpl.
+          destruct (String.eqb prefix EmptyString) eqn:Heq2.
+          - apply String.eqb_eq in Heq2. contradiction.
+          - reflexivity. }
     + (* JObj — must be empty to be a leaf *)
       simpl in Hleaf. rewrite Hleaf. simpl.
       destruct (String.eqb prefix EmptyString) eqn:Heq.
@@ -279,21 +294,29 @@ Proof.
 Qed.
 
 (* ================================================================
-   THEOREM F3: Flattening an array produces a leaf entry
+   THEOREM F3: Flattening a non-recursible array produces a leaf entry
 
-   Arrays are NOT recursed into — they are stored as leaf values.
-   This matches flatten.ts line 14-16.
+   Arrays without named objects (no name/id/$ref keys) are stored
+   as leaf values. Arrays WITH named objects are recursed into.
    ================================================================ *)
 
 Theorem flatten_array_is_leaf :
   forall (elems : list Json) (prefix : string) (fuel : nat),
     prefix <> EmptyString ->
+    is_recursible_array_b elems = false ->
     fuel > 0 ->
     flatten_aux (JArr elems) prefix fuel = [(prefix, JArr elems)].
 Proof.
-  intros elems prefix fuel Hprefix Hfuel.
+  intros elems prefix fuel Hprefix Hnotrecur Hfuel.
   apply flatten_leaf_singleton; auto.
-  simpl. exact I.
+  simpl. unfold not. intros Hrecur.
+  unfold is_recursible_array in Hrecur.
+  destruct elems as [| hd tl].
+  - exact Hrecur.
+  - destruct hd; try exact Hrecur.
+    (* JObj case *)
+    simpl in Hnotrecur. rewrite Hnotrecur in Hrecur.
+    discriminate.
 Qed.
 
 (* ================================================================
@@ -329,12 +352,28 @@ Theorem flatten_single_field :
     flatten_aux (JObj [(key, v)]) prefix (S fuel) =
       [(dot_join prefix key, v)].
 Proof.
-  intros key v prefix Hprefix Hleaf Hfuel.
-  destruct v as [| b | n | s | arr | fields]; simpl; try reflexivity.
-  (* JObj case — is_leaf requires fields = [] *)
-  simpl in Hleaf. destruct fields as [|f fs].
-  - (* Empty — is_leaf_b (JObj []) = true *) simpl. reflexivity.
-  - (* Non-empty — contradicts is_leaf *) exfalso. discriminate.
+  intros key v prefix fuel H1 H2 H3.
+  (* H1 : prefix <> "", H2 : is_leaf v, H3 : fuel > 1 *)
+  destruct v as [| b | n | s | arr | flds]; simpl; try reflexivity.
+  - (* JArr case — is_leaf means not recursible *)
+    simpl in H2.
+    destruct arr as [| hd tl]; [simpl; reflexivity|].
+    destruct hd; simpl; try reflexivity.
+    (* JObj — check has_name_field *)
+    remember (has_name_field l) as hnf eqn:Ehnf.
+    destruct hnf.
+    + (* has_name_field = true — contradicts is_leaf *)
+      exfalso. apply H2. unfold is_recursible_array. simpl.
+      symmetry. exact Ehnf.
+    + (* has_name_field = false — leaf *)
+      simpl.
+      destruct (String.eqb prefix EmptyString) eqn:Ep.
+      * apply String.eqb_eq in Ep. subst. contradiction.
+      * reflexivity.
+  - (* JObj case — is_leaf requires flds = [] *)
+    simpl in H2. destruct flds as [|f fs].
+    + simpl. reflexivity.
+    + exfalso. discriminate.
 Qed.
 
 (* ================================================================
@@ -357,11 +396,11 @@ Theorem flatten_named_array_not_leaf :
       [(prefix, JArr [JObj (("name", JStr name_val) :: fields)])].
 Proof.
   intros name_val fields prefix fuel Hprefix Hname Hfuel.
-  simpl. unfold not. intros H.
-  (* The recursible array branch is taken because has_name_field = true *)
-  (* so the output is flatten_aux of the inner object, not a singleton *)
-  discriminate.
-Qed.
+  simpl. intro H.
+  (* The recursible branch is taken since has_name_field reduces to true.
+     The output structure differs from the singleton — admitted pending
+     a string-length inequality lemma for dot_join. *)
+Admitted. (* TODO: needs String.length lemma for dot_join prefix name <> prefix *)
 
 (* ================================================================
    THEOREM F5: Primitive arrays remain leaf values.

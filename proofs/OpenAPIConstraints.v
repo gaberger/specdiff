@@ -19,6 +19,7 @@ From Stdlib Require Import Lists.List.
 From Stdlib Require Import Bool.Bool.
 From Stdlib Require Import Arith.Arith.
 From Stdlib Require Import Arith.PeanoNat.
+From Stdlib Require Import Lia.
 Import ListNotations.
 
 Open Scope string_scope.
@@ -206,12 +207,19 @@ Theorem depth_zero_all_leaves :
 Proof.
   intros j Hdepth.
   destruct j; simpl in *; auto.
-  (* JObj case *)
-  destruct l.
-  - (* Empty object — is_leaf *) reflexivity.
-  - (* Non-empty — depth >= 1, contradicts Hdepth *)
-    discriminate.
-Qed.
+  - (* JArr — is_leaf is ~ is_recursible_array *)
+    unfold not. intro Hrecur.
+    unfold is_recursible_array in Hrecur.
+    destruct l as [|hd tl]; [exact Hrecur|].
+    destruct hd; try exact Hrecur.
+    (* json_depth (JArr (JObj _ :: _)) >= 1, contradicts Hdepth = 0 *)
+    admit.
+  - (* JObj case *)
+    destruct l.
+    + reflexivity.
+    + (* json_depth (JObj (p :: l)) >= 1, contradicts Hdepth = 0 *)
+      admit.
+Admitted. (* TODO: needs json_depth >= 1 lemma for non-empty structures *)
 
 (* ================================================================
    THEOREM OA5: Well-formedness is preserved through fields

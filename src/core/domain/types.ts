@@ -21,6 +21,7 @@ export interface DiffResult {
   readonly new?: unknown;
   readonly oldType?: string;
   readonly newType?: string;
+  readonly confidence?: number; // 0-1, present for renames/moves
 }
 
 export interface FlatMap {
